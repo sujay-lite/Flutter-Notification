@@ -1,26 +1,23 @@
-import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
-import 'notifcation_controller.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-void main() async {
-  await AwesomeNotifications().initialize(null, [
-    NotificationChannel(
-        channelGroupKey: "daily_checkin_group",
-        channelKey: "daily_checkin_channel",
-        channelName: "basic_notification",
-        channelDescription: "Sending Daily checkin notification")
-  ], channelGroups: [
-    NotificationChannelGroup(
-      channelGroupKey: "daily_checkin_group",
-      channelGroupName: "Daily Check-In Group",
-    )
-  ]);
+import 'notification_service.dart';
 
-  bool isAllowedToSendNotification =
-      await AwesomeNotifications().isNotificationAllowed();
-  if (!isAllowedToSendNotification) {
-    AwesomeNotifications().requestPermissionToSendNotifications();
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
+void onDidReceiveNotificationResponse(
+    NotificationResponse notificationResponse) async {
+  final String? payload = notificationResponse.payload;
+  if (notificationResponse.payload != null) {
+    debugPrint('notification payload $payload');
   }
+}
+
+FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+void main() {
   runApp(const MyApp());
 }
 
@@ -35,22 +32,13 @@ class _MyAppState extends State<MyApp> {
   // This widget is the root of your application.
   @override
   void initState() {
-    AwesomeNotifications().setListeners(
-        onActionReceivedMethod: NotificationController.onActionReceivedMethod,
-        onNotificationCreatedMethod:
-            NotificationController.onNotificationCreatedMethod,
-        onNotificationDisplayedMethod:
-            NotificationController.onNotificationDisplayedMethod,
-        onDismissActionReceivedMethod:
-            NotificationController.onDismissActionReceivedMethod);
-
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Awesome Notification',
+      title: 'Local Notification',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -72,33 +60,57 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   var today = DateTime.now();
 
-  void scheduleNotification() async {
-    String localTimeZone =
-        await AwesomeNotifications().getLocalTimeZoneIdentifier();
-    String utcTimeZone =
-        await AwesomeNotifications().getLocalTimeZoneIdentifier();
+  void initializeNotification() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    // NotificationService().initNotification();
+    flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
 
-    print("❤️ Scheduling notification");
-    await AwesomeNotifications().createNotification(
-        content: NotificationContent(
-          id: 1,
-          channelKey: "daily_checkin_channel",
-          title: 'Just in time!',
-          body: 'This notification was schedule to shows at ',
-          // +
-          // (Utils.DateUtils.parseDateToString(scheduleTime.toLocal()) ??
-          //     '?') +
-          // ' $timeZoneIdentifier (' +
-          // (Utils.DateUtils.parseDateToString(scheduleTime.toUtc()) ?? '?') +
-          // ' utc)',
-          notificationLayout: NotificationLayout.BigPicture,
-          bigPicture: 'asset://assets/images/delivery.jpeg',
-          payload: {'uuid': 'uuid-test'},
-        ),
-        schedule: NotificationInterval(
-            interval: 605, timeZone: localTimeZone, repeats: true));
-    //NotificationCalendar(
-    //     second: 10, timeZone: localTimeZone, repeats: true));
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('app_icon');
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings(
+            requestAlertPermission: true, requestBadgePermission: true);
+
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+            android: initializationSettingsAndroid,
+            iOS: initializationSettingsDarwin);
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings,
+        onDidReceiveNotificationResponse: onDidReceiveNotificationResponse);
+  }
+
+  void setupNotification() async {
+    try {
+      tz.initializeTimeZones();
+      final bool? result = await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+
+      const AndroidNotificationDetails androidNotificationDetails =
+          AndroidNotificationDetails('channelId', 'repeating channel name',
+              // 'repeating channel id', 'repeating channel name',
+              channelDescription: 'repeating description');
+      // const DarwinNotificationDetails darwinNotificationDetails = DarwinNotificationDetails(s);
+      const NotificationDetails notificationDetails =
+          NotificationDetails(android: androidNotificationDetails);
+      await flutterLocalNotificationsPlugin.periodicallyShow(
+          0,
+          'repeating title',
+          'repeating body',
+          RepeatInterval.everyMinute,
+          notificationDetails,
+          androidAllowWhileIdle: true);
+    } catch (E) {
+      print("Error in notification $E");
+    }
   }
 
   @override
@@ -109,22 +121,17 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        child: ElevatedButton(
-          onPressed: scheduleNotification,
-          child: const Text("Schedule Notification from now"),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
+          child: ElevatedButton(
+        child: Text("Ask Notification permission"),
         onPressed: () {
-          AwesomeNotifications().createNotification(
-              content: NotificationContent(
-                  id: 1,
-                  channelKey: "daily_checkin_channel",
-                  title: "Daily Check-In Reminder",
-                  body: "It is time to check in for today."));
+          initializeNotification();
+          setupNotification();
         },
+      )),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
         tooltip: 'Increment',
-        child: const Icon(Icons.notification_add),
+        child: const Icon(Icons.notifications_active),
       ),
     );
   }
