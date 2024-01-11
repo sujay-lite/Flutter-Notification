@@ -78,27 +78,25 @@ class _MyHomePageState extends State<MyHomePage> {
     String utcTimeZone =
         await AwesomeNotifications().getLocalTimeZoneIdentifier();
 
-    print("❤️ Scheduling notification");
+    print("❤️ Scheduling notification ${DateTime.now()}");
     await AwesomeNotifications().createNotification(
         content: NotificationContent(
           id: 1,
           channelKey: "daily_checkin_channel",
           title: 'Just in time!',
-          body: 'This notification was schedule to shows at ',
-          // +
-          // (Utils.DateUtils.parseDateToString(scheduleTime.toLocal()) ??
-          //     '?') +
-          // ' $timeZoneIdentifier (' +
-          // (Utils.DateUtils.parseDateToString(scheduleTime.toUtc()) ?? '?') +
-          // ' utc)',
+          body: 'Schedule to shows at ${DateTime.now()}',
           notificationLayout: NotificationLayout.BigPicture,
           bigPicture: 'asset://assets/images/delivery.jpeg',
           payload: {'uuid': 'uuid-test'},
         ),
-        schedule: NotificationInterval(
-            interval: 605, timeZone: localTimeZone, repeats: true));
-    //NotificationCalendar(
-    //     second: 10, timeZone: localTimeZone, repeats: true));
+
+        ///SCHEDULING NOTIFICATION AT GIVEN DATE and/or TIME (CAN BE SET TO REPEAT)
+        schedule: NotificationCalendar(
+            hour: 0, minute: 56, timeZone: localTimeZone, repeats: true));
+
+    /// WORKING CODE FOR SCHEDULING NOTIFICATION AT FIXED REGULAR INTERVALS
+    // schedule: NotificationInterval(
+    //     interval: 600, timeZone: localTimeZone, repeats: true));
   }
 
   @override
