@@ -76,7 +76,7 @@ class _MyHomePageState extends State<MyHomePage> {
     String localTimeZone =
         await AwesomeNotifications().getLocalTimeZoneIdentifier();
     String utcTimeZone =
-        await AwesomeNotifications().getLocalTimeZoneIdentifier();
+        await AwesomeNotifications().getUtcTimeZoneIdentifier();
 
     print("❤️ Scheduling notification ${DateTime.now()}");
     await AwesomeNotifications().createNotification(
